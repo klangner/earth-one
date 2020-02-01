@@ -1,4 +1,7 @@
-@()
+@import controllers.HomeController.Rainfall
+
+@(stations: List[Rainfall])
+
 
 @main("EarthOne", "rainfall") {
   <div class="container">
@@ -15,24 +18,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-            </tr>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-            </tr>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-            </tr>
+            @for(station <- stations) { <tr>
+              <th scope="row">@station.name</th>
+              <td>@station.updatedAt</td>
+              <td>@station.precipitation</td>
+              <td>@station.forecast</td>
+              </tr>
+              }
           </tbody>
         </table>
       </div>

@@ -1,4 +1,6 @@
-@()
+@import controllers.HomeController.Station
+
+@(stations: List[Station])
 
 @main("EarthOne", "stations") {
   <div class="container">
@@ -16,27 +18,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-              <td>2.3</td>
-            </tr>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-              <td>2.3</td>
-            </tr>
-            <tr>
-              <th scope="row">Wisła 1</th>
-              <td>2020-01-22 18:00</td>
-              <td>23</td>
-              <td>24</td>
-              <td>2.3</td>
-            </tr>
+            @for(station <- stations) {
+              <tr>
+                <th scope="row">@station.name</th>
+                <td>@station.updatedAt</td>
+                <td>@station.level</td>
+                <td>@station.forecast</td>
+                <td>@station.forecastError</td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
