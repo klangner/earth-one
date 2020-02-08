@@ -1,3 +1,6 @@
+secrets.ini
+/data/
+
 .DS_Store
 logs/
 target/
@@ -5,3 +8,5 @@ RUNNING_PID
 .metals/
 .bloop/
 .g8/
+venv/
+.vscode/

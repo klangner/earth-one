@@ -6,3 +6,4 @@ System for environmental water monitoring.
 
   * webserver - Web application
   * crawler - Crawler for public data
+  * data-sources - Notebooks with information about data sources.
