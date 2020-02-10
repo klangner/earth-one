@@ -9,13 +9,20 @@ import datetime
 from pathlib import Path
 import configparser
 
-dirname = os.path.dirname(__file__)
+DIR_NAME = os.path.dirname(__file__)
+
+# Channel names
+CHANNEL_NAMES = [
+    'rain', 'water', 'winddir', 'windlevel', 
+    'temp', 'pressure', 'humidity', 'sun']
+
 # Load secrets
 config = configparser.ConfigParser()
-config.read(os.path.join(dirname, '../secrets.ini'))
+config.read(os.path.join(DIR_NAME, '../secrets.ini'))
 HTTP_HEADERS = {'Authorization': 'Bearer {}'.format(config['API_KEYS']['GDANSKIE_WODY'])}
+
 # Output dir
-OUTPUT_DIR = Path(os.path.join(dirname, '../data/gdanskiewody'))
+OUTPUT_DIR = Path(os.path.join(DIR_NAME, '../data/gdanskiewody'))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -23,8 +30,7 @@ def fetch_stations():
     """ Fetch station list as pandas data frame"""
     response = requests.get('https://pomiary.gdanskiewody.pl/rest/stations', headers=HTTP_HEADERS)
     response_data = response.json()
-    stations = pd.DataFrame(response_data['data']).set_index('no')
-    return stations
+    return pd.DataFrame(response_data['data'])
 
 
 def fetch_channel_day(station, channel, day):
@@ -34,6 +40,9 @@ def fetch_channel_day(station, channel, day):
         station, channel, day.strftime('%Y-%m-%d'))
     response = requests.get(url, headers=HTTP_HEADERS)
     response_data = response.json()
+    if response_data['status'] == 'error':
+        print(response_data['message'])
+        return []
     return response_data['data']
 
 
@@ -66,11 +75,24 @@ def update_channel(station, channel):
     channel_data.to_csv(channel_file)
 
 
+def update_station(station):
+    if station['active']:
+        print('Update station: {}'.format(station['no']))
+        for channel in CHANNEL_NAMES:
+            if station[channel]:
+                print('  - channel: {}'.format(channel))
+                update_channel(station['no'], channel)
+
+
+def update_all_stations(stations):
+    for _, station in stations.iterrows():
+        update_station(station)
+
+
 def main():
     # Always work with the fresh station list.
     stations = fetch_stations()
-    stations.to_csv(OUTPUT_DIR / 'stations.csv')
-    update_channel('1', 'rain')
-
+    stations.to_csv(OUTPUT_DIR / 'stations.csv', index=False)
+    update_all_stations(stations)
 
 main()
