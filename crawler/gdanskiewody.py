@@ -72,7 +72,7 @@ def update_channel(station, channel):
     else:
         start_date = datetime.date(2005, 1, 1)
         channel_data = fetch_channel(station, channel, start_date, end_date)
-    channel_data.to_csv(channel_file)
+    channel_data.dropna().to_csv(channel_file)
 
 
 def update_station(station):
