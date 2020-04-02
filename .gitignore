@@ -1,5 +1,6 @@
 secrets.ini
 /data/
+.ipynb_checkpoints/
 
 .DS_Store
 logs/
