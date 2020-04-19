@@ -1,11 +1,15 @@
 # Earth One
 
 System for environmental water monitoring.
+Experimental project to compare solution in several different languages. Currently:
+  * Python
+  * Julia
+  * Scala
+
 
 ## Folders
 
-  * webserver - Web application
-  * crawler - Crawlers for public data
+  * script - Python + Julia scripts
 
 
 ## Data sources
