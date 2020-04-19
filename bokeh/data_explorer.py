@@ -27,7 +27,6 @@ def update_station_list(attrname, old, new):
 def update_plot(attrname, old, new):
     print(attrname, old, new)
 
-
 channel_select = Select(
     value='Water', title='Channel type', options=CHANNEL_NAMES)
 stations_select = Select(value='', title='Stations', options=['Discrete', 'Smoothed'])

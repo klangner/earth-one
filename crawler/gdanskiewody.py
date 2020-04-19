@@ -13,13 +13,13 @@ DIR_NAME = os.path.dirname(__file__)
 
 # Channel names
 CHANNEL_NAMES = [
-    'rain', 'water', 'winddir', 'windlevel', 
+    'rain', 'water', 'winddir', 'windlevel',
     'temp', 'pressure', 'humidity', 'sun']
 
 # Load secrets
 config = configparser.ConfigParser()
 config.read(os.path.join(DIR_NAME, '../secrets.ini'))
-HTTP_HEADERS = {'Authorization': 'Bearer {}'.format(config['API_KEYS']['GDANSKIE_WODY'])}
+HTTP_HEADERS = {'Authorization': 'Bearer {}'.format(config['api-keys']['gdanskie-wody'])}
 
 # Output dir
 OUTPUT_DIR = Path(os.path.join(DIR_NAME, '../data/gdanskiewody'))
@@ -58,7 +58,7 @@ def fetch_channel(station, channel, start_date, end_date):
 
 def update_channel(station, channel):
     """Load last save channel data
-       Fetch new information 
+       Fetch new information
        Save updated series
     """
     channel_file = OUTPUT_DIR / '{}-{}.csv'.format(station, channel)
