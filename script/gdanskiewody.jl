@@ -1,26 +1,31 @@
+# Fetch data from Gdanskie Wody source
+#
 # # Gdanskie Wody
 # System pomiarów meteorologicznych i hydrologicznych aglomeracji gdańskiej
 # URL: https://pomiary.gdanskiewody.pl/account/dashboard
+#
 
 using ConfParser
 using HTTP
 using DataFrames
 using JSON
 using CSV
+using Dates
+using TimeSeries
 
 
 # Path the the configuration file
 const CONFIG_PATH = "secrets.ini"
-# Path to the data folder
-const OUTPUT_FOLDER = "data/gdanskiewody"
-# Gdanskie wody API URL
-const API_URL = "https://pomiary.gdanskiewody.pl/rest/stations"
+# Default output path
+OUTPUT_FOLDER = "data/gdanskiewody"
 # Station channel types
 const CHANNEL_NAMES = [:rain, :water, :winddir, :windlevel, :temp, :pressure, :humidity, :sun]
+
 
 "Configuration object"
 struct Config
     apikey::String
+    outputfolder::String
 end
 
 """
@@ -30,11 +35,11 @@ function loadconfig()::Config
     conf = ConfParse(CONFIG_PATH)
     parse_conf!(conf)
     apikey = retrieve(conf, "api-keys", "gdanskie-wody")
-    Config(apikey)
+    Config(apikey, OUTPUT_FOLDER)
 end
 
 """
-Initialize data folder is not exists
+Initialize data folder if not exists
 """
 function initoutput()
     mkpath(OUTPUT_FOLDER)
@@ -44,7 +49,7 @@ end
 """ Fetch station list as a DataFrame"""
 function fetchstations(config::Config)
     headers = ["Authorization" => "Bearer $(config.apikey)"]
-    r = HTTP.request("GET", API_URL, headers)
+    r = HTTP.request("GET", "https://pomiary.gdanskiewody.pl/rest/stations", headers)
     response_data = JSON.parse(String(r.body))
     rows = response_data["data"]
     colnames = Tuple([Symbol(k) for k in keys(rows[1])])
@@ -52,25 +57,72 @@ function fetchstations(config::Config)
 end
 
 
+""" The API allows only to fetch single day and single channel
 """
-Update channel. Fetch only new data from the last point saved.
+function fetchchannelday(config, station, channel, day)
+    dayformatted = Dates.format(day, "YYYY-mm-dd")
+    url = "https://pomiary.gdanskiewody.pl/rest/measurements/$station/$channel/$dayformatted"
+    headers = ["Authorization" => "Bearer $(config.apikey)"]
+    response = HTTP.request("GET", url, headers)
+    response_data = JSON.parse(String(response.body))
+    if response_data["status"] == "error"
+        println("Error reading $station-$channel")
+        println(response_data["message"])
+        []
+    else
+        filter(r -> r[2] != nothing, response_data["data"])
+    end
+end
+
+
+""" Fetch channel data for the given period
 """
-function updatechannel(station, channel)
-    fname = "$OUTPUT_FOLDER/$station-$channel.csv"
-    df = CSV.read(fname)
-    print(last(df))
+function fetchchannel(config, station, channel, startdate, enddate)
+    days = startdate:Dates.Day(1):enddate
+    daysdata = [fetchchannelday(config, station, channel, d) for d in days]
+    data = collect(Iterators.flatten(daysdata))
+    index = [Dates.DateTime(d[1], "Y-m-d HH:MM:SS") for d in data]
+    values = map(d -> d[2], data)
+    TimeArray(index, values, [channel])
 end
 
 
 """
-Update data for all stations
+Update channel.
+Since fetching data is expensive (and we don't know when the data starts)
+We will first check the last timestamp in the saved channel and only fetch
+data starting from this timestamp.
 """
-function updatestations(stations)
+function updatechannel(config, station, channel)
+    dformat="Y-m-d HH:MM:SS"
+    fname = "$(config.outputfolder)/$station-$channel.csv"
+    println("  - $channel")
+    enddate = Dates.today()
+    if isfile(fname)
+        ta = readtimearray(fname, format=dformat)
+        lasttimestamp = last(timestamp(ta))
+        startdate = Date(lasttimestamp)
+        ta2 = fetchchannel(config, station, channel, startdate, enddate)
+        series = vcat(ta, from(ta2, lasttimestamp + Dates.Minute(1)))
+    else
+        startdate = Date(2005, 1, 1)
+        series = fetchchannel(config, station, channel, startdate, enddate)
+    end
+    writetimearray(series, fname; format=dformat)
+end
+
+
+"""
+Update data for all stations and channels.
+Only update channels for active stations and available channels.
+"""
+function updatechannels(config, stations)
     for station in eachrow(stations)
         if station.active
+            println("Station $(station.no)")
             for channel in CHANNEL_NAMES
                 if station[channel]
-                    updatechannel(station.no, channel)
+                    updatechannel(config, station.no, channel)
                 end
             end
         end
@@ -81,57 +133,31 @@ end
 """
 Update local copy of data from the internet
 """
-function updatedata()
+function updatedataset()
     config = loadconfig()
     initoutput()
     stations = fetchstations(config)
-    CSV.write("$OUTPUT_FOLDER/stations.csv", stations)
-    updatestations(stations)
+    CSV.write("$(config.outputfolder)/stations.csv", stations)
+    updatechannels(config, stations)
 end
 
 
-updatedata()
+"""
+Main function for this module.
+"""
+#updatedataset()
 
 
+function test(df)
+    ts = Set()
+    for e in df.time
+        if in(e, ts)
+            println(e)
+        else
+            push!(ts, e)
+        end
+    end
+end
 
-#
-# def fetch_channel_day(station, channel, day):
-#     """ The API allows only to fetch single day and single channel
-#     """
-#     url = 'https://pomiary.gdanskiewody.pl/rest/measurements/{}/{}/{}'.format(
-#         station, channel, day.strftime('%Y-%m-%d'))
-#     response = requests.get(url, headers=HTTP_HEADERS)
-#     response_data = response.json()
-#     if response_data['status'] == 'error':
-#         print(response_data['message'])
-#         return []
-#     return response_data['data']
-#
-#
-# def fetch_channel(station, channel, start_date, end_date):
-#     channel_data = []
-#     for n in range((end_date-start_date).days):
-#         day = start_date + datetime.timedelta(n)
-#         channel_data += fetch_channel_day(station, channel, day)
-#     df = pd.DataFrame(channel_data, columns=['time', channel])
-#     df = df.set_index('time')
-#     return df[channel]
-#
-#
-# def update_channel(station, channel):
-#     """Load last save channel data
-#        Fetch new information
-#        Save updated series
-#     """
-#     channel_file = OUTPUT_DIR / '{}-{}.csv'.format(station, channel)
-#     end_date = datetime.datetime.now().date()
-#     if Path(channel_file).is_file():
-#         df = pd.read_csv(channel_file, index_col=0, parse_dates=True)
-#         channel_data = df[channel]
-#         start_date = channel_data.index[-1].to_pydatetime().date()
-#         new_data = fetch_channel(station, channel, start_date, end_date)
-#         channel_data = channel_data.append(new_data)
-#     else:
-#         start_date = datetime.date(2005, 1, 1)
-#         channel_data = fetch_channel(station, channel, start_date, end_date)
-#     channel_data.dropna().to_csv(channel_file)
+
+# test()
