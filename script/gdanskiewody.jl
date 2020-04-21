@@ -146,18 +146,3 @@ end
 Main function for this module.
 """
 #updatedataset()
-
-
-function test(df)
-    ts = Set()
-    for e in df.time
-        if in(e, ts)
-            println(e)
-        else
-            push!(ts, e)
-        end
-    end
-end
-
-
-# test()
