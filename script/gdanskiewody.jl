@@ -15,7 +15,7 @@ using TimeSeries
 
 
 # Path the the configuration file
-const CONFIG_PATH = "secrets.ini"
+const CONFIG_PATH = "production.config"
 # Default output path
 OUTPUT_FOLDER = "data/gdanskiewody"
 # Station channel types
@@ -32,9 +32,9 @@ end
 Load configuration data from external file
 """
 function loadconfig()::Config
-    conf = ConfParse(CONFIG_PATH)
+    conf = ConfParse(CONFIG_PATH, "ini")
     parse_conf!(conf)
-    apikey = retrieve(conf, "api-keys", "gdanskie-wody")
+    apikey = retrieve(conf, "default", "gdanskiewody-apikey")
     Config(apikey, OUTPUT_FOLDER)
 end
 
@@ -54,6 +54,24 @@ function fetchstations(config::Config)
     rows = response_data["data"]
     colnames = Tuple([Symbol(k) for k in keys(rows[1])])
     DataFrame([NamedTuple{colnames}(values(d)) for d in rows])
+end
+
+
+"""
+Update data for all stations and channels.
+Only update channels for active stations and available channels.
+"""
+function listchannels(stations)
+    channels = []
+    active = stations[stations.active, :]
+    for station in eachrow(active)
+        for channel in CHANNEL_NAMES
+            if station[channel]
+                push!(channels, (station.no, channel))
+            end
+        end
+    end
+    channels
 end
 
 

@@ -1,4 +1,4 @@
-secrets.ini
+production.config
 /data/
 .ipynb_checkpoints/
 *.jl.cov
