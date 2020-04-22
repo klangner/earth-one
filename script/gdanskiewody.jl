@@ -16,8 +16,6 @@ using TimeSeries
 
 # Path the the configuration file
 const CONFIG_PATH = "production.config"
-# Default output path
-OUTPUT_FOLDER = "data/gdanskiewody"
 # Station channel types
 const CHANNEL_NAMES = [:rain, :water, :winddir, :windlevel, :temp, :pressure, :humidity, :sun]
 
@@ -35,7 +33,8 @@ function loadconfig()::Config
     conf = ConfParse(CONFIG_PATH, "ini")
     parse_conf!(conf)
     apikey = retrieve(conf, "default", "gdanskiewody-apikey")
-    Config(apikey, OUTPUT_FOLDER)
+    outputfolder = retrieve(conf, "default", "output-folder")
+    Config(apikey, outputfolder)
 end
 
 """
