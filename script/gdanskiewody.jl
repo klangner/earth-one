@@ -60,12 +60,12 @@ end
 Update data for all stations and channels.
 Only update channels for active stations and available channels.
 """
-function listchannels(stations) :: Array{Tuple{Int64, Symbol}}
+function listchannels(stations) :: Array{NamedTuple{(:s, :c),Tuple{Int64, Symbol}}}
     channels = []
     active = stations[stations.active, :]
     for station in eachrow(active)
         sc = filter(c -> station[c], CHANNEL_NAMES)
-        foreach(c -> push!(channels, (station.no, c)), sc)
+        foreach(c -> push!(channels, (s=station.no, c=c)), sc)
     end
     channels
 end
@@ -143,7 +143,7 @@ function updatedataset()
     stations = fetchstations(config)
     CSV.write("$(config.outputfolder)/stations.csv", stations)
     channels = listchannels(stations)
-    foreach(sc -> updatechannel(config, sc[1], sc[2]), channels)
+    foreach(sc -> updatechannel(config, sc.s, sc.c), channels)
 end
 
 
