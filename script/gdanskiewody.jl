@@ -61,15 +61,12 @@ end
 Update data for all stations and channels.
 Only update channels for active stations and available channels.
 """
-function listchannels(stations)
+function listchannels(stations) :: Array{Tuple{Int64, Symbol}}
     channels = []
     active = stations[stations.active, :]
     for station in eachrow(active)
-        for channel in CHANNEL_NAMES
-            if station[channel]
-                push!(channels, (station.no, channel))
-            end
-        end
+        sc = filter(c -> station[c], CHANNEL_NAMES)
+        foreach(c -> push!(channels, (station.no, c)), sc)
     end
     channels
 end
@@ -95,13 +92,17 @@ end
 
 """ Fetch channel data for the given period
 """
-function fetchchannel(config, station, channel, startdate, enddate)
+function fetchchannel(config, station, channel, startdate, enddate) :: Union{TimeArray, Nothing}
     days = startdate:Dates.Day(1):enddate
     daysdata = [fetchchannelday(config, station, channel, d) for d in days]
     data = collect(Iterators.flatten(daysdata))
     index = [Dates.DateTime(d[1], "Y-m-d HH:MM:SS") for d in data]
     values = map(d -> d[2], data)
-    TimeArray(index, values, [channel])
+    if isempty(values)
+        nothing
+    else
+        TimeArray(index, values, [channel])
+    end
 end
 
 
@@ -114,37 +115,23 @@ data starting from this timestamp.
 function updatechannel(config, station, channel)
     dformat="Y-m-d HH:MM:SS"
     fname = "$(config.outputfolder)/$station-$channel.csv"
-    println("  - $channel")
+    println("$station - $channel")
     enddate = Dates.today()
     if isfile(fname)
         ta = readtimearray(fname, format=dformat)
         lasttimestamp = last(timestamp(ta))
         startdate = Date(lasttimestamp)
         ta2 = fetchchannel(config, station, channel, startdate, enddate)
-        series = vcat(ta, from(ta2, lasttimestamp + Dates.Minute(1)))
+        if isnothing(ta)
+            series = ta
+        else
+            series = vcat(ta, from(ta2, lasttimestamp + Dates.Minute(1)))
+        end
     else
         startdate = Date(2005, 1, 1)
         series = fetchchannel(config, station, channel, startdate, enddate)
     end
     writetimearray(series, fname; format=dformat)
-end
-
-
-"""
-Update data for all stations and channels.
-Only update channels for active stations and available channels.
-"""
-function updatechannels(config, stations)
-    for station in eachrow(stations)
-        if station.active
-            println("Station $(station.no)")
-            for channel in CHANNEL_NAMES
-                if station[channel]
-                    updatechannel(config, station.no, channel)
-                end
-            end
-        end
-    end
 end
 
 
@@ -156,7 +143,8 @@ function updatedataset()
     initoutput()
     stations = fetchstations(config)
     CSV.write("$(config.outputfolder)/stations.csv", stations)
-    updatechannels(config, stations)
+    channels = listchannels(stations)
+    foreach(sc -> updatechannel(config, sc[1], sc[2]), channels)
 end
 
 
