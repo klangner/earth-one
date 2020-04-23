@@ -40,8 +40,9 @@ end
 """
 Initialize data folder if not exists
 """
-function initoutput()
-    mkpath(OUTPUT_FOLDER)
+function initoutput(config)
+    mkpath(config.outputfolder)
+    mkpath("$(config.outputfolder)/sensors")
 end
 
 
@@ -113,7 +114,7 @@ data starting from this timestamp.
 """
 function updatechannel(config, station, channel)
     dformat="Y-m-d HH:MM:SS"
-    fname = "$(config.outputfolder)/$station-$channel.csv"
+    fname = "$(config.outputfolder)/sensors/$station-$channel.csv"
     println("$station - $channel")
     enddate = Dates.today()
     if isfile(fname)
@@ -139,7 +140,7 @@ Update local copy of data from the internet
 """
 function updatedataset()
     config = loadconfig()
-    initoutput()
+    initoutput(config)
     stations = fetchstations(config)
     CSV.write("$(config.outputfolder)/stations.csv", stations)
     channels = listchannels(stations)
