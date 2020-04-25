@@ -37,14 +37,6 @@ function loadconfig()::Config
     Config(apikey, outputfolder)
 end
 
-"""
-Initialize data folder if not exists
-"""
-function initoutput(config)
-    mkpath(config.outputfolder)
-    mkpath("$(config.outputfolder)/sensors")
-end
-
 
 """ Fetch station list as a DataFrame"""
 function fetchstations(config::Config)
@@ -113,9 +105,12 @@ We will first check the last timestamp in the saved channel and only fetch
 data starting from this timestamp.
 """
 function updatechannel(config, station, channel)
-    dformat="Y-m-d HH:MM:SS"
-    fname = "$(config.outputfolder)/sensors/$station-$channel.csv"
     println("$station - $channel")
+    dformat="YYYY-mm-dd HH:MM:SS"
+    fpath= "$(config.outputfolder)/sensors/station=$station/channel=$channel"
+    # Ensure that the path exists
+    mkpath(fpath)
+    fname = "$fpath/$station-$channel.csv"
     enddate = Dates.today()
     if isfile(fname)
         ta = readtimearray(fname, format=dformat)
@@ -132,9 +127,7 @@ function updatechannel(config, station, channel)
         startdate = Date(2005, 1, 1)
         series = fetchchannel(config, station, channel, startdate, enddate)
     end
-    fpathout = "$(config.outputfolder)/sensors/station=$station/channel=$channel"
-    mkpath(fpathout)
-    writetimearray(series, "$fpathout/$station-$channel.csv"; format=dformat)
+    writetimearray(series, fname; format=dformat)
 end
 
 

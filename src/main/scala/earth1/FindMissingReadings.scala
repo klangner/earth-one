@@ -1,7 +1,7 @@
 package earth1
 
-import org.apache.spark.sql.{SparkSession}//, SQLContext}
-// import org.apache.spark.SparkContext
+import org.apache.spark.sql.{SparkSession}
+import org.apache.spark.sql.types._
 
 
 object FindMissingReadings extends App {
@@ -13,20 +13,26 @@ object FindMissingReadings extends App {
 
   spark.sparkContext.setLogLevel("ERROR")
 
-  val stations = spark.read.options(Map("header" -> "true")).csv("data/gdanskiewody/stations.csv")
+  val stations = spark
+    .read
+    .option("header", "true")
+    .csv("data/gdanskiewody/stations.csv")
   println("Stations:")
   println(s"#records: ${stations.count()}")
-  val sensors = spark.read.options(Map("header" -> "true")).csv("data/gdanskiewody/sensors")
-  println("Sensors:")
-  println(s"#records: ${sensors.count()}")
-  val columns = sensors.columns.mkString(", ")
-  println(s"columns: ${columns}")
 
-  val test = spark.read.options(Map("header" -> "true")).csv("data/gdanskiewody/test")
-  println("Test:")
-  println(s"#records: ${test.count()}")
-  val cols = test.columns.mkString(", ")
-  println(s"columns: ${cols}")
+  val schema = StructType(List(
+    StructField("Timestamp",TimestampType,false),
+    StructField("value",FloatType,true), 
+    StructField("station",IntegerType,false), 
+    StructField("channel",StringType,false)))
+  val sensors = spark
+    .read
+    .option("header", "true")
+    .option("timestampFormat", "y-M-d HH:mm:ss")
+    .schema(schema)
+    .csv("data/gdanskiewody/sensors")
+
+  sensors.head(10).foreach(println)
 
   spark.stop()
 }
