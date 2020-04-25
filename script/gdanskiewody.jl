@@ -101,7 +101,7 @@ function fetchchannel(config, station, channel, startdate, enddate) :: Union{Tim
     if isempty(values)
         nothing
     else
-        TimeArray(index, values, [channel])
+        TimeArray(index, values, [:value])
     end
 end
 
@@ -119,6 +119,7 @@ function updatechannel(config, station, channel)
     enddate = Dates.today()
     if isfile(fname)
         ta = readtimearray(fname, format=dformat)
+        ta = TimeSeries.rename(ta, :value)
         lasttimestamp = last(timestamp(ta))
         startdate = Date(lasttimestamp)
         ta2 = fetchchannel(config, station, channel, startdate, enddate)
@@ -131,7 +132,9 @@ function updatechannel(config, station, channel)
         startdate = Date(2005, 1, 1)
         series = fetchchannel(config, station, channel, startdate, enddate)
     end
-    writetimearray(series, fname; format=dformat)
+    fpathout = "$(config.outputfolder)/sensors/station=$station/channel=$channel"
+    mkpath(fpathout)
+    writetimearray(series, "$fpathout/$station-$channel.csv"; format=dformat)
 end
 
 
@@ -140,7 +143,6 @@ Update local copy of data from the internet
 """
 function updatedataset()
     config = loadconfig()
-    initoutput(config)
     stations = fetchstations(config)
     CSV.write("$(config.outputfolder)/stations.csv", stations)
     channels = listchannels(stations)
