@@ -32,13 +32,12 @@ object FindMissingReadings {
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-    val stations = loadStations(spark)
+
     val sensors = loadSensors(spark)
   
-    println("Stations:")
-    println(s"#records: ${stations.count()}")
-    sensors.head(10).foreach(println)
-   
+    val channels = sensors.groupBy("station", "channel").count()
+    channels.take(5).foreach(println)
+
     spark.stop()
   }
 
