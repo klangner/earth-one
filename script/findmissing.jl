@@ -20,15 +20,31 @@ Find time series resolution.
 The resolution is a mode of differences between timestamps.
 """
 function estimateresolution(ts :: TimeArray)
-    # Lets calculate histogram for 10 bins. Then the resol
-    function f(acc::Dict, v)
-        if haskey(acc, v)
-            acc[v] = acc[v] + 1
-        else
-            acc[v] = 1
-        end
-    end
     idx = timestamp(ts)
     diffs = idx[2:end] - idx[1:end-1]
-    foldl(f, diffs; init=Dict())
+    bins :: Dict{Millisecond, Int64} = Dict()
+    maxkey = Millisecond(0)
+    maxvalue = 0
+    for t in diffs
+        counter = haskey(bins, t) ? bins[t] + 1 : 1
+        if counter > maxvalue
+            maxkey = t
+        end
+    end
+    maxkey
+end
+
+"""
+Find places with missing data points
+"""
+function findmissing(ts, resolution)
+    missings = []
+    prev = nothing
+    for t in timestamp(ts)
+        if prev != nothing  && t - prev > resolution
+          push!(missings, prev)
+        end
+        prev = t
+    end
+    missings
 end
