@@ -14,4 +14,4 @@ RUNNING_PID
 .g8/
 venv/
 .vscode/
-Cargo.toml
+Cargo.lock
