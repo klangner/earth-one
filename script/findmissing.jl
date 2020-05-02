@@ -37,7 +37,8 @@ end
 """
 Find places with missing data points
 """
-function findmissing(ts, resolution)
+function findmissing(ts)
+    resolution = estimateresolution(ts)
     missings = []
     prev = nothing
     for t in timestamp(ts)
