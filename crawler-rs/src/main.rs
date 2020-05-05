@@ -141,6 +141,22 @@ fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) -> Result
     Ok(TimeSeries::from_records(data))
 }
 
+/// Fetch channel data for the given period
+fn fetch_sensor(config: &Config, sensor: &Sensor, start_day: &NaiveDate, _end_day: &NaiveDate) -> Result<TimeSeries, reqwest::Error> {
+    // days = startdate:Dates.Day(1):enddate
+    // daysdata = [fetchchannelday(config, station, channel, d) for d in days]
+    // data = collect(Iterators.flatten(daysdata))
+    // index = [Dates.DateTime(d[1], "Y-m-d HH:MM:SS") for d in data]
+    // values = map(d -> d[2], data)
+    // if isempty(values)
+    //     nothing
+    // else
+    //     TimeArray(index, values, [:value])
+    // end
+    fetch_sensor_day(config, sensor, start_day)
+}
+
+
 
 /// Main
 fn main() {
@@ -150,6 +166,6 @@ fn main() {
     let sensors = list_sensors(&stations);
     // Update sensors
     let now = NaiveDate::from_ymd(2020, 5, 4);
-    let ts = fetch_sensor_day(&config, &sensors[0], &now).unwrap();
-    ts.iter().for_each(|r| println!("{:?}", r));
+    let ts = fetch_sensor(&config, &sensors[10], &now, &now).unwrap();
+    ts.into_iter().for_each(|r| println!("{:?}", r));
 }
