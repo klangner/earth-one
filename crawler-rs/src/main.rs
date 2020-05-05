@@ -5,6 +5,7 @@ use ini::Ini;
 use reqwest;
 use reqwest::header;
 use csv;
+use timeseries::TimeSeries;
 
 
 /// List of channels
@@ -121,8 +122,7 @@ fn list_sensors(stations: &Vec<StationInfo>) -> Vec<Sensor> {
 
 
 /// The API allows only to fetch single day and single channel
-fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) 
-        -> Result<Vec<(NaiveDateTime, f64)>, reqwest::Error> {
+fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) -> Result<TimeSeries, reqwest::Error> {
     let day_formatted = day.to_string();
     let url = format!("https://pomiary.gdanskiewody.pl/rest/measurements/{}/{}/{}",
                         sensor.station, sensor.channel, day_formatted);
@@ -134,10 +134,11 @@ fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate)
     let decoded_response = response.json::<SensorResponse>()?;
     let data = decoded_response.data
         .iter()
-        .filter(|(_, v)| v.is_number())
-        .map(|(d, v)| (NaiveDateTime::parse_from_str(d, "%Y-%m-%d %H:%M:%S").unwrap(), v.as_f64().unwrap()))
+        .map(|(d, v)| (NaiveDateTime::parse_from_str(d, "%Y-%m-%d %H:%M:%S"), v.as_f64()))
+        .filter(|(d, v)| d.is_ok() && v.is_some())
+        .map(|(d, v)| (d.unwrap().timestamp(), v.unwrap()))
         .collect();
-    Ok(data)
+    Ok(TimeSeries::from_records(data))
 }
 
 
@@ -149,6 +150,6 @@ fn main() {
     let sensors = list_sensors(&stations);
     // Update sensors
     let now = NaiveDate::from_ymd(2020, 5, 4);
-    let data = fetch_sensor_day(&config, &sensors[0], &now).unwrap();
-    data.iter().for_each(|r| println!("{:?}", r));
+    let ts = fetch_sensor_day(&config, &sensors[0], &now).unwrap();
+    ts.iter().for_each(|r| println!("{:?}", r));
 }
