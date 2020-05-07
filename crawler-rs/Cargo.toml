@@ -11,5 +11,6 @@ rust-ini = "0.15"
 reqwest = { version = "0.10", features = ["json", "blocking"] }
 csv = "1.1"
 chrono = "0.4"
-timeseries = { path = "../../../rust/timeseries.rs" }
+# timeseries = { path = "../../../rust/timeseries.rs" }
+timeseries = "0.2"
 

@@ -1,11 +1,13 @@
+use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, Duration};
 use ini::Ini;
 use reqwest;
 use reqwest::header;
 use csv;
-use timeseries::TimeSeries;
+use timeseries;
+use timeseries::{TimeSeries, DataPoint};
 
 
 /// List of channels
@@ -122,7 +124,10 @@ fn list_sensors(stations: &Vec<StationInfo>) -> Vec<Sensor> {
 
 
 /// The API allows only to fetch single day and single channel
-fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) -> Result<TimeSeries, reqwest::Error> {
+/// The day in GdanskieWody API is defined as starting and ending at 6:00.
+/// So fo example the day 2020-05-05 will return data points 
+/// from 2020-05-05 06:00:00 to 2020-05-06 05:00:00
+fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) -> Result<Vec<DataPoint>, reqwest::Error> {
     let day_formatted = day.to_string();
     let url = format!("https://pomiary.gdanskiewody.pl/rest/measurements/{}/{}/{}",
                         sensor.station, sensor.channel, day_formatted);
@@ -136,26 +141,50 @@ fn fetch_sensor_day(config: &Config, sensor: &Sensor, day: &NaiveDate) -> Result
         .iter()
         .map(|(d, v)| (NaiveDateTime::parse_from_str(d, "%Y-%m-%d %H:%M:%S"), v.as_f64()))
         .filter(|(d, v)| d.is_ok() && v.is_some())
-        .map(|(d, v)| (d.unwrap().timestamp(), v.unwrap()))
+        .map(|(d, v)| DataPoint::new(d.unwrap().timestamp_millis(), v.unwrap()))
         .collect();
-    Ok(TimeSeries::from_records(data))
+    Ok(data)
 }
 
 /// Fetch channel data for the given period
-fn fetch_sensor(config: &Config, sensor: &Sensor, start_day: &NaiveDate, _end_day: &NaiveDate) -> Result<TimeSeries, reqwest::Error> {
-    // days = startdate:Dates.Day(1):enddate
-    // daysdata = [fetchchannelday(config, station, channel, d) for d in days]
-    // data = collect(Iterators.flatten(daysdata))
-    // index = [Dates.DateTime(d[1], "Y-m-d HH:MM:SS") for d in data]
-    // values = map(d -> d[2], data)
-    // if isempty(values)
-    //     nothing
-    // else
-    //     TimeArray(index, values, [:value])
-    // end
-    fetch_sensor_day(config, sensor, start_day)
+fn fetch_sensor(config: &Config, sensor: &Sensor, start_date: &NaiveDate, end_date: &NaiveDate) -> Option<TimeSeries> {
+    let days = end_date.signed_duration_since(*start_date).num_days() + 1;
+    let records: Vec<DataPoint> = (-1..days)
+        .map(|d|start_date.checked_add_signed(Duration::days(d)).unwrap())
+        .flat_map(|d| fetch_sensor_day(config, sensor, &d).unwrap())
+        .collect();
+    if records.is_empty() {
+        None
+    } else {
+        Some(TimeSeries::from_datapoints(records))
+    }
 }
 
+// Update channel.
+// Since fetching data is expensive (and we don't know when the data starts)
+// We will first check the last timestamp in the saved channel and only fetch
+// data starting from this timestamp.
+fn update_channel(config: &Config, sensor: &Sensor) {
+    println!("{}-{}", &sensor.station, &sensor.channel);
+    let dformat = "%Y-%m-%d %H:%M:%S";
+    let fpath= format!("{}/sensors/station={}/channel={}", &config.output_folder, &sensor.station, &sensor.channel);
+    // Ensure that the path exists
+    std::fs::create_dir_all(&fpath).unwrap();
+    let fpath = format!("{}/{}-{}.csv", fpath, &sensor.station, &sensor.channel);
+    let end_date = chrono::offset::Local::now().naive_local().date();
+    let (start_date, ts) = if Path::new(&fpath).is_file() {
+        let saved_data = timeseries::io::csv::read_from_file(&fpath, &dformat).unwrap();
+        let last_point = saved_data.iter().last().unwrap();
+        let last_date = NaiveDateTime::from_timestamp(last_point.timestamp / 1000, 0).date();
+        (last_date, saved_data)
+    } else {
+        (NaiveDate::from_ymd(2005, 1, 1), TimeSeries::empty())
+    };
+    
+    let new_ts = fetch_sensor(&config, &sensor, &start_date, &end_date).unwrap();
+    let ts_merged = ts.merge(&new_ts);
+    timeseries::io::csv::write_to_file(&fpath, &ts_merged, &dformat).unwrap();
+}
 
 
 /// Main
@@ -164,8 +193,5 @@ fn main() {
     let stations = fetch_stations(&config).unwrap();
     save_stations(&stations, &config).unwrap();
     let sensors = list_sensors(&stations);
-    // Update sensors
-    let now = NaiveDate::from_ymd(2020, 5, 4);
-    let ts = fetch_sensor(&config, &sensors[10], &now, &now).unwrap();
-    ts.into_iter().for_each(|r| println!("{:?}", r));
+    sensors.iter().for_each(|s| update_channel(&config, s))
 }
