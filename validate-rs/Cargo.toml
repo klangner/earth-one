@@ -1,0 +1,12 @@
+[package]
+name = "validate"
+version = "0.1.0"
+authors = ["klangner <klangner@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rust-ini = "0.15"
+csv = "1.1"
+chrono = "0.4"
+timeseries = { path = "../../../rust/timeseries.rs" }
+
